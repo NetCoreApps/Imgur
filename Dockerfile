@@ -1,4 +1,4 @@
-FROM microsoft/dotnet:1.1-sdk-projectjson
+FROM microsoft/dotnet:latest
 COPY src/Imgur /app
 WORKDIR /app
 RUN ["dotnet", "restore"]
