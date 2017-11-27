@@ -1,17 +1,20 @@
-﻿using Funq;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Funq;
 using ServiceStack;
+using ServiceStack.IO;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.Drawing.Drawing2D;
 using ServiceStack.Text;
-using ServiceStack.VirtualPath;
 
 //Entire C# source code for Imgur backend - there is no other .cs :)
 namespace Imgur
@@ -20,15 +23,13 @@ namespace Imgur
     {
         public static void Main(string[] args)
         {
-            var host = new WebHostBuilder()
-                .UseKestrel()
-                .UseContentRoot(Directory.GetCurrentDirectory())
-                .UseIISIntegration()
+            BuildWebHost(args).Run();
+        }
+
+        public static IWebHost BuildWebHost(string[] args) =>
+            WebHost.CreateDefaultBuilder(args)
                 .UseStartup<Startup>()
                 .Build();
-
-            host.Run();
-        }
     }
 
     public class Startup
@@ -51,7 +52,7 @@ namespace Imgur
 
     public class AppHost : AppHostBase
     {
-        public AppHost() : base("Image Resizer", typeof(AppHost).GetAssembly()) {}
+        public AppHost() : base("Image Resizer", typeof(AppHost).Assembly) {}
         public override void Configure(Container container) {}
     }
 
