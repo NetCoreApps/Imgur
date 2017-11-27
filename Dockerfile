@@ -1,12 +1,17 @@
-FROM microsoft/dotnet:latest
+FROM microsoft/aspnetcore-build:2.0 AS build-env
 COPY src/Imgur /app
 WORKDIR /app
-RUN ["dotnet", "restore"]
-RUN ["dotnet", "build"]
-RUN ["apt-get","update"]
-RUN ["apt-get","install","fontconfig","ttf-dejavu","-y"]
+
+RUN dotnet restore --configfile NuGet.Config
+RUN dotnet publish -c Release -o out
+RUN apt-get update
+RUN apt-get install fontconfig ttf-dejavu -y
 ENV FONTCONFIG_PATH /etc/fonts
-EXPOSE 5000/tcp
-ENV ASPNETCORE_URLS https://*:5000
+
+# Build runtime image
+FROM microsoft/aspnetcore:2.0
+WORKDIR /app
+COPY --from=build-env /app/out .
+ENV ASPNETCORE_URLS http://*:5000
 VOLUME /app
-ENTRYPOINT ["dotnet", "run", "--server.urls", "http://*:5000"]
+ENTRYPOINT ["dotnet", "Imgur.dll"]
