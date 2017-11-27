@@ -13,5 +13,4 @@ FROM microsoft/aspnetcore:2.0
 WORKDIR /app
 COPY --from=build-env /app/out .
 ENV ASPNETCORE_URLS http://*:5000
-VOLUME /app
 ENTRYPOINT ["dotnet", "Imgur.dll"]
