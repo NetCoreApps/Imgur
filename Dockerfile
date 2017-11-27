@@ -1,9 +1,9 @@
 FROM microsoft/aspnetcore-build:2.0 AS build-env
-COPY src/Imgur /app
+COPY src /app
 WORKDIR /app
 
 RUN dotnet restore --configfile ../NuGet.Config
-RUN dotnet publish -c Release -o out
+RUN dotnet publish -c Release -o /app/out
 RUN apt-get update
 RUN apt-get install fontconfig ttf-dejavu -y
 ENV FONTCONFIG_PATH /etc/fonts
