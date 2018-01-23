@@ -3,7 +3,7 @@ FROM microsoft/dotnet:latest
 COPY src /app
 WORKDIR /app
 
-RUN dotnet restore --configfile ../NuGet.Config
+RUN dotnet restore --configfile ./NuGet.Config
 RUN dotnet publish -c Release -o /app/out
 RUN apt-get update
 RUN apt-get install -y fontconfig ttf-dejavu
