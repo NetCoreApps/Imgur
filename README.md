@@ -1,4 +1,4 @@
-## [Imgur](https://github.com/ServiceStackApps/Imgur)
+## [Imgur](https://github.com/NetCoreApps/Imgur)
 
 > Imgur-like App to resize uploaded images in all iOS Resolutions in <30 lines of JavaScript + 1 ServiceStack ImageService
 
@@ -6,9 +6,9 @@
 
 #### Features
 
- - [1 default.html page](https://github.com/ServiceStackApps/Imgur/blob/master/src/Imgur/default.html)
- - [1 ServicStack back-end .cs file](https://github.com/ServiceStackApps/Imgur/blob/master/src/Imgur/Global.asax.cs)
+ - [1 default.html page](https://github.com/NetCoreApps/Imgur/blob/master/src/Imgur/wwwroot/default.html)
+ - [1 ServiceStack back-end .cs file](https://github.com/NetCoreApps/Imgur/blob/master/src/Imgur/Startup.cs)
 
 Try it out live at: [imgur.servicestack.net](http://imgur.servicestack.net)
 
-Follow [@ServiceStack](http://twitter.com) or [+ServiceStack](https://plus.google.com/u/0/communities/112445368900682590445) for updates.
+Follow [@ServiceStack](http://twitter.com) for updates.
