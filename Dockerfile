@@ -12,6 +12,10 @@ WORKDIR /app/Imgur
 RUN dotnet publish -c Release -o out
 
 FROM mcr.microsoft.com/dotnet/aspnet:5.0 AS runtime
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgdiplus libc6-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/Imgur/out ./
 ENV ASPNETCORE_URLS http://*:5000
