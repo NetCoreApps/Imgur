@@ -2,11 +2,9 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Funq;
 using ServiceStack;
@@ -14,6 +12,7 @@ using ServiceStack.IO;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Drawing.Drawing2D;
+using Microsoft.Extensions.Hosting;
 using ServiceStack.Text;
 
 //Entire C# source code for Imgur backend - there is no other .cs :)
@@ -35,7 +34,7 @@ namespace Imgur
     public class Startup
     {
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILoggerFactory loggerFactory)
         {
             if (env.IsDevelopment())
             {
@@ -120,22 +119,21 @@ namespace Imgur
 
             ms.Position = 0;
             var fileName = hash + ".png";
-            using (var img = Image.FromStream(ms))
+            using var img = Image.FromStream(ms);
+            
+            using (var msPng = MemoryStreamFactory.GetStream())
             {
-                using (var msPng = MemoryStreamFactory.GetStream())
-                {
-                    img.Save(msPng, ImageFormat.Png);
-                    msPng.Position = 0;
-                    VirtualFiles.WriteFile(UploadsDir.CombineWith(fileName), msPng);
-                }
-
-                var stream = Resize(img, ThumbnailSize, ThumbnailSize);
-                VirtualFiles.WriteFile(ThumbnailsDir.CombineWith(fileName), stream);
-
-                ImageSizes.ForEach(x => VirtualFiles.WriteFile(
-                    UploadsDir.CombineWith(x).CombineWith(hash + ".png"),
-                    Get(new Resize { Id = hash, Size = x }).ReadFully()));
+                img.Save(msPng, ImageFormat.Png);
+                msPng.Position = 0;
+                VirtualFiles.WriteFile(UploadsDir.CombineWith(fileName), msPng);
             }
+
+            var stream = Resize(img, ThumbnailSize, ThumbnailSize);
+            VirtualFiles.WriteFile(ThumbnailsDir.CombineWith(fileName), stream);
+
+            ImageSizes.ForEach(x => VirtualFiles.WriteFile(
+                UploadsDir.CombineWith(x).CombineWith(hash + ".png"),
+                Get(new Resize { Id = hash, Size = x }).ReadFully()));
         }
 
         [AddHeader(ContentType = "image/png")]
@@ -145,21 +143,19 @@ namespace Imgur
             if (request.Id == null || imageFile == null)
                 throw HttpError.NotFound(request.Id + " was not found");
 
-            using (var stream = imageFile.OpenRead())
-            using (var img = Image.FromStream(stream))
-            {
-                var parts = request.Size?.Split('x');
-                int width = img.Width;
-                int height = img.Height;
+            using var stream = imageFile.OpenRead();
+            using var img = Image.FromStream(stream);
+            var parts = request.Size?.Split('x');
+            int width = img.Width;
+            int height = img.Height;
 
-                if (parts != null && parts.Length > 0)
-                    int.TryParse(parts[0], out width);
+            if (parts != null && parts.Length > 0)
+                int.TryParse(parts[0], out width);
 
-                if (parts != null && parts.Length > 1)
-                    int.TryParse(parts[1], out height);
+            if (parts != null && parts.Length > 1)
+                int.TryParse(parts[1], out height);
 
-                return Resize(img, width, height);
-            }
+            return Resize(img, width, height);
         }
 
         public static Stream Resize(Image img, int newWidth, int newHeight)
@@ -198,23 +194,20 @@ namespace Imgur
             if (Image.Width < newWidth)
                 newWidth = Image.Width;
 
-            using (var bmp = new Bitmap(newWidth, newHeight, PixelFormat.Format24bppRgb))
-            {
-                bmp.SetResolution(72, 72);
-                using (var g = Graphics.FromImage(bmp))
-                {
-                    g.SmoothingMode = SmoothingMode.AntiAlias;
-                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                    g.DrawImage(Image, new Rectangle(0, 0, newWidth, newHeight), startX, startY, newWidth, newHeight, GraphicsUnit.Pixel);
+            using var bmp = new Bitmap(newWidth, newHeight, PixelFormat.Format24bppRgb);
+            bmp.SetResolution(72, 72);
+            
+            using var g = Graphics.FromImage(bmp);
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            g.DrawImage(Image, new Rectangle(0, 0, newWidth, newHeight), startX, startY, newWidth, newHeight, GraphicsUnit.Pixel);
 
-                    var ms = new MemoryStream();
-                    bmp.Save(ms, ImageFormat.Png);
-                    Image.Dispose();
-                    var outimage = Image.FromStream(ms);
-                    return outimage;
-                }
-            }
+            var ms = new MemoryStream();
+            bmp.Save(ms, ImageFormat.Png);
+            Image.Dispose();
+            var outImage = Image.FromStream(ms);
+            return outImage;
         }
 
         public object Any(DeleteUpload request)
