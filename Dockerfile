@@ -11,7 +11,7 @@ COPY src/Imgur/. ./Imgur/
 WORKDIR /app/Imgur
 RUN dotnet publish -c Release -o out
 
-FROM mcr.microsoft.com/dotnet/aspnet:5.0.101-focal-amd64 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:5.0 AS runtime
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libgdiplus libc6-dev \
     && apt-get clean \
