@@ -9,9 +9,6 @@ using Microsoft.Extensions.Logging;
 using Funq;
 using ServiceStack;
 using ServiceStack.IO;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Drawing.Drawing2D;
 using Microsoft.Extensions.Hosting;
 using ServiceStack.Text;
 using SkiaSharp;
@@ -169,15 +166,10 @@ namespace Imgur
                 var width = (int)(img.Width * ratio);
                 var height = (int)(img.Height * ratio);
 
-                var newImage = img.Resize(new SKImageInfo(width, height), SKFilterQuality.Medium);
-                img = newImage;
-
+                img = img.Resize(new SKImageInfo(width, height), SKFilterQuality.Medium);
                 if (img.Width != newWidth || img.Height != newHeight)
                 {
-                    var startX = (Math.Max(img.Width, newWidth) - Math.Min(img.Width, newWidth)) / 2;
-                    var startY = (Math.Max(img.Height, newHeight) - Math.Min(img.Height, newHeight)) / 2;
-                    img = Crop(img, newWidth, newHeight, startX, startY);
-                    // img = Scale(img, newWidth, newHeight);
+                    img = Crop(img, newWidth, newHeight); // resized + clipped
                 }
             }
 
@@ -185,51 +177,25 @@ namespace Imgur
             return pngStream;
         }
         
-        public static SKBitmap Crop(SKBitmap img, int newWidth, int newHeight, int startX = 0, int startY = 0)
+        public static SKBitmap Crop(SKBitmap img, int newWidth, int newHeight)
         {
-            if (img.Height < newHeight)
-                newHeight = img.Height;
-
             if (img.Width < newWidth)
                 newWidth = img.Width;
 
+            if (img.Height < newHeight)
+                newHeight = img.Height;
+
+            var startX = (Math.Max(img.Width, newWidth) - Math.Min(img.Width, newWidth)) / 2;
+            var startY = (Math.Max(img.Height, newHeight) - Math.Min(img.Height, newHeight)) / 2;
+
             var croppedBitmap = new SKBitmap(newWidth, newHeight);
-            var source = new SKRect(startX, startY, img.Width, img.Height);
+            var source = new SKRect(startX, startY, newWidth + startX, newHeight + startY);
             var dest = new SKRect(0, 0, newWidth, newHeight);
             using var canvas = new SKCanvas(croppedBitmap);
             canvas.Clear(SKColors.Transparent);
             canvas.DrawBitmap(img, source, dest);
             img.Dispose();
-            return croppedBitmap;
-        }
-
-        public static SKBitmap Scale(SKBitmap img, int desiredWidth, int desiredHeight)
-        {
-            // Calculate the scale
-            // Maintain aspect ratio
-            double scale = 1.0;
-            double height = desiredHeight;
-            double width =  desiredWidth;
-
-            // Which is scaled more, height or width?
-            if (desiredWidth / img.Width < desiredHeight / img.Height)
-            {
-                scale = desiredWidth / (double)img.Width;
-                height = desiredHeight * scale;
-            }
-            else
-            {
-                scale = (double)desiredHeight / img.Height;
-                width = desiredWidth * scale;
-            }
-
-            var centreOffset = new Point((int)(desiredWidth - width) / 2, (int)(desiredHeight - height) / 2);
-            var croppedBitmap = new SKBitmap(desiredWidth, desiredHeight);
-            using var canvas = new SKCanvas(croppedBitmap);
-            // canvas.Clear(SKColors.Transparent); // Draw back buffer
-            canvas.DrawBitmap(img, 
-                new SKRect(0, 0, img.Width, img.Height), 
-                new SKRect(centreOffset.X, centreOffset.Y, centreOffset.X + (int)width, centreOffset.Y + (int)height));
+            
             return croppedBitmap;
         }
 
