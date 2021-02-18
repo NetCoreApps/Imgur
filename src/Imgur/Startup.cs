@@ -14,6 +14,7 @@ using System.Drawing.Imaging;
 using System.Drawing.Drawing2D;
 using Microsoft.Extensions.Hosting;
 using ServiceStack.Text;
+using SkiaSharp;
 
 //Entire C# source code for Imgur backend - there is no other .cs :)
 namespace Imgur
@@ -119,11 +120,11 @@ namespace Imgur
 
             ms.Position = 0;
             var fileName = hash + ".png";
-            using var img = Image.FromStream(ms);
+            using var img = SKBitmap.Decode(ms);
             
             using (var msPng = MemoryStreamFactory.GetStream())
             {
-                img.Save(msPng, ImageFormat.Png);
+                img.Encode(msPng, SKEncodedImageFormat.Png, 75);
                 msPng.Position = 0;
                 VirtualFiles.WriteFile(UploadsDir.CombineWith(fileName), msPng);
             }
@@ -144,7 +145,7 @@ namespace Imgur
                 throw HttpError.NotFound(request.Id + " was not found");
 
             using var stream = imageFile.OpenRead();
-            using var img = Image.FromStream(stream);
+            using var img = SKBitmap.Decode(stream);
             var parts = request.Size?.Split('x');
             int width = img.Width;
             int height = img.Height;
@@ -158,7 +159,7 @@ namespace Imgur
             return Resize(img, width, height);
         }
 
-        public static Stream Resize(Image img, int newWidth, int newHeight)
+        public static Stream Resize(SKBitmap img, int newWidth, int newHeight)
         {
             if (newWidth != img.Width || newHeight != img.Height)
             {
@@ -168,8 +169,7 @@ namespace Imgur
                 var width = (int)(img.Width * ratio);
                 var height = (int)(img.Height * ratio);
 
-                var newImage = new Bitmap(width, height);
-                Graphics.FromImage(newImage).DrawImage(img, 0, 0, width, height);
+                var newImage = img.Resize(new SKImageInfo(width, height), SKFilterQuality.Medium);
                 img = newImage;
 
                 if (img.Width != newWidth || img.Height != newHeight)
@@ -177,37 +177,60 @@ namespace Imgur
                     var startX = (Math.Max(img.Width, newWidth) - Math.Min(img.Width, newWidth)) / 2;
                     var startY = (Math.Max(img.Height, newHeight) - Math.Min(img.Height, newHeight)) / 2;
                     img = Crop(img, newWidth, newHeight, startX, startY);
+                    // img = Scale(img, newWidth, newHeight);
                 }
             }
 
-            var ms = new MemoryStream();
-            img.Save(ms, ImageFormat.Png);
-            ms.Position = 0;
-            return ms;
+            var pngStream = img.Encode(SKEncodedImageFormat.Png, 75).AsStream();
+            return pngStream;
+        }
+        
+        public static SKBitmap Crop(SKBitmap img, int newWidth, int newHeight, int startX = 0, int startY = 0)
+        {
+            if (img.Height < newHeight)
+                newHeight = img.Height;
+
+            if (img.Width < newWidth)
+                newWidth = img.Width;
+
+            var croppedBitmap = new SKBitmap(newWidth, newHeight);
+            var source = new SKRect(startX, startY, img.Width, img.Height);
+            var dest = new SKRect(0, 0, newWidth, newHeight);
+            using var canvas = new SKCanvas(croppedBitmap);
+            canvas.Clear(SKColors.Transparent);
+            canvas.DrawBitmap(img, source, dest);
+            img.Dispose();
+            return croppedBitmap;
         }
 
-        public static Image Crop(Image Image, int newWidth, int newHeight, int startX = 0, int startY = 0)
+        public static SKBitmap Scale(SKBitmap img, int desiredWidth, int desiredHeight)
         {
-            if (Image.Height < newHeight)
-                newHeight = Image.Height;
+            // Calculate the scale
+            // Maintain aspect ratio
+            double scale = 1.0;
+            double height = desiredHeight;
+            double width =  desiredWidth;
 
-            if (Image.Width < newWidth)
-                newWidth = Image.Width;
+            // Which is scaled more, height or width?
+            if (desiredWidth / img.Width < desiredHeight / img.Height)
+            {
+                scale = desiredWidth / (double)img.Width;
+                height = desiredHeight * scale;
+            }
+            else
+            {
+                scale = (double)desiredHeight / img.Height;
+                width = desiredWidth * scale;
+            }
 
-            using var bmp = new Bitmap(newWidth, newHeight, PixelFormat.Format24bppRgb);
-            bmp.SetResolution(72, 72);
-            
-            using var g = Graphics.FromImage(bmp);
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            g.DrawImage(Image, new Rectangle(0, 0, newWidth, newHeight), startX, startY, newWidth, newHeight, GraphicsUnit.Pixel);
-
-            var ms = new MemoryStream();
-            bmp.Save(ms, ImageFormat.Png);
-            Image.Dispose();
-            var outImage = Image.FromStream(ms);
-            return outImage;
+            var centreOffset = new Point((int)(desiredWidth - width) / 2, (int)(desiredHeight - height) / 2);
+            var croppedBitmap = new SKBitmap(desiredWidth, desiredHeight);
+            using var canvas = new SKCanvas(croppedBitmap);
+            // canvas.Clear(SKColors.Transparent); // Draw back buffer
+            canvas.DrawBitmap(img, 
+                new SKRect(0, 0, img.Width, img.Height), 
+                new SKRect(centreOffset.X, centreOffset.Y, centreOffset.X + (int)width, centreOffset.Y + (int)height));
+            return croppedBitmap;
         }
 
         public object Any(DeleteUpload request)
