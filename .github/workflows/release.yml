@@ -90,4 +90,5 @@ jobs:
         with:
           task-definition: deploy/task-definition.json
           service: ${{ env.app_name }}
+          cluster: ${{ env.cluster_name }}
           force-new-deployment: true
