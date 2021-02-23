@@ -32,7 +32,7 @@
         }
       ],
       "mountPoints": [],
-      "memory": 128,
+      "memory": 256,
       "volumesFrom": [],
       "image": "${IMAGE_URL}",
       "essential": true,
