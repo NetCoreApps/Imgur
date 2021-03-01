@@ -30,6 +30,8 @@ A t2.micro or larger will work fine, this pattern can be used to host multiple a
 ### Configure Instance
 Under `IAM role`, use the `ecsInstanceRole`, if this is not available, see [AWS documentation for the process of checking if it exists and creating it if needed](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/instance_IAM_role.html).
 
+If you are not using your own generated Elastic IP, select `Enabled` for `Auto-assign Public IP`.
+
 You will also want to add the following Userdata script (in the `Configure` step of the launch wizard) with your own `ECS_CLUSTER` value. This tells the ecs-agent running on the instance which ECS cluster the instance should join.
 
 ```bash
@@ -52,7 +54,21 @@ You'll want to expose at least ports 80 and 443.
 
 ### Setup Docker-compose and nginx-proxy
 To let your server handle multiple ServiceStack applications and automate the generation and management of TLS certificates, an additional docker-compose file is provided via the `x mix` template, `nginx-proxy-compose.yml`. This docker-compose file is ready to run and can be copied to the deployment server.
-> This is done via docker-compose rather than via ECS for simplicity. 
+> This is done via docker-compose rather than via ECS itself for simplicity.
+
+First you'll need to install `docker-compose`.
+
+```bash
+sudo curl -L "https://github.com/docker/compose/releases/download/1.27.4/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+```
+Run `docker-compose --version` to confirm.
+
+To copy you can use scp or just creating a new file via server text editor to copy the short YML file over. For this example, we are going to copy it straight to the ~/ (home) directory.
+
+```bash
+scp -i <path to private ssh key> ./nginx-proxy-compose.yml ec2-user@<server_floating_ip>:~/nginx-proxy.compose.yml
+```
 
 For example, once copied to remote `~/nginx-proxy-compose.yml`, the following command can be run on the remote server.
 
@@ -60,7 +76,8 @@ For example, once copied to remote `~/nginx-proxy-compose.yml`, the following co
 docker-compose -f ~/nginx-proxy-compose.yml up -d
 ```
 
-This will run an nginx reverse proxy along with a companion container that will watch for additional containers in the same docker network and attempt to initialize them with valid TLS certificates.
+This will run an nginx reverse proxy along with a companion container that will watch for additional containers in the same docker network and attempt to initialize them with valid TLS certificates. This includes containers created and managed by the ECS agent.
+> If the container doesn't have the environment variable `VIRTUAL_HOST` set, it will be ignored.
 
 ## GitHub Repository setup
 The `release.yml` assumes 6 secrets have been setup.
@@ -69,7 +86,7 @@ The `release.yml` assumes 6 secrets have been setup.
 - AWS_SECRET_ACCESS_KEY - AWS access secrets for programmatic access to AWS APIs.
 - AWS_REGION - default region for AWS API calls.
 - AWS_ECS_CLUSTER - Cluster name in ECS, this should match the value in your Userdata.
-- HOST_DOMAIN - Domain/submain of your application, eg `imgur.example.com` .
+- HOST_DOMAIN - Domain/sub-domain of your application, eg `imgur.example.com` .
 - LETSENCRYPT_EMAIL - Email address, required for Let's Encrypt automated TLS certificates.
 
 These secrets are used to populate variables within GitHub Actions and other configuration files.
